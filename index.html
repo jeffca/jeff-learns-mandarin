@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taipei Mandarin Survival - Sentence Builder</title>
+  
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
+
+</head>
+<body>
+
+  <header>
+    <h1>Jeff Learns Mandarin</h1>
+  </header>
+
+<div class="status-banner" id="status-banner-container">
+    <span id="data-status">⏳ Initializing dataset...</span>
+  </div>
+
+  <div class="controls">
+    <div>
+      <span id="stage-counter" style="font-weight: bold; margin-right: 15px;">Sentence 1 / --</span>
+    </div>
+    <div>
+      <span id="score-counter" style="font-weight: bold; color: #2c3e50;">Correct: 0 | Incorrect: 0 (0%)</span>
+    </div>
+  </div>
+
+  <div class="game-card">
+    <div class="scenario-header">
+      <small style="color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px;">Target Sentence</small>
+      <div class="target-english" id="target-english">Loading...</div>
+    </div>
+
+    <label style="font-size: 0.85rem; color: #7f8c8d;">Your Sentence (Drop or Tap tiles):</label>
+    <div class="sentence-zone" id="sentence-zone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'sentence')">
+      <!-- Sentence tiles will appear here -->
+    </div>
+
+    <label style="font-size: 0.85rem; color: #7f8c8d;">Word Bank (Distractors included):</label>
+    <div class="word-bank" id="word-bank" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event, 'bank')">
+      <!-- Word bank tiles will appear here -->
+    </div>
+
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button class="btn btn-accent" style="flex: 1;" onclick="checkAnswer()">Check Answer</button>
+      <button class="btn" style="background: #7f8c8d;" onclick="nextStage()">Skip / Next ➔</button>
+    </div>
+
+    <div id="feedback-box" class="feedback-box">
+      <div id="feedback-title" style="font-weight: bold; font-size: 1.1rem; margin-bottom: 5px;"></div>
+      <div id="feedback-body"></div>
+      <div id="token-breakdown" class="token-breakdown"></div>
+    </div>
+  </div>
+
+  <script>
+    // Global State
+    let vocabMap = new Map();
+    let allVocabList = [];
+    let customSentences = [];
+    let currentStageIndex = 0;
+    let currentStage = null;
+
+    // Score Tracking State
+    let totalCorrect = 0;
+    let totalIncorrect = 0;
+    let hasCheckedCurrentStage = false;
+
+    // Initialization
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadInitialData();
+    });
+
+    // Fisher-Yates Shuffle Algorithm to randomize arrays securely
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    async function loadInitialData() {
+      updateStatus("Loading dataset...");
+      
+      let loadedVocab = false;
+      let loadedSentences = false;
+
+      // Try fetching local CSV files
+      try {
+        const vRes = await fetch('vocab.csv');
+        if (vRes.ok) {
+          const text = await vRes.text();
+          parseVocabCSV(text);
+          loadedVocab = true;
+        }
+      } catch (e) { console.log("Local vocab.csv not found, using fallbacks."); }
+
+      try {
+        const sRes = await fetch('sentences.csv');
+        if (sRes.ok) {
+          const text = await sRes.text();
+          parseSentencesCSV(text);
+          loadedSentences = true;
+        }
+      } catch (e) { console.log("Local sentences.csv not found, using fallbacks."); }
+
+      updateStatus(`Loaded ${vocabMap.size} vocab entries & ${customSentences.length} sentences.` + 
+                    (!loadedVocab || !loadedSentences ? ' (Using fallback defaults for missing CSVs)' : ''));
+      document.getElementById('status-banner-container').style.display = 'none';
+      loadStage(0);
+    }
+
+    function populateVocabMap(dataArray) {
+      allVocabList = dataArray;
+      vocabMap.clear();
+      dataArray.forEach(item => {
+        if (item.Traditional) {
+          const key = item.Traditional.trim();
+          vocabMap.set(key, {
+            traditional: key,
+            pinyin: item.Pinyin || '',
+            english: item.English || '',
+            level: item.Level || 'A1'
+          });
+        }
+      });
+    }
+
+    function parseVocabCSV(csvText) {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => populateVocabMap(results.data)
+      });
+    }
+
+    function parseSentencesCSV(csvText) {
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const validRows = results.data.filter(r => r.Sentence && r.English);
+          // Shuffle sentences randomly every time they are parsed/loaded
+          customSentences = shuffleArray(validRows);
+        }
+      });
+    }
+
+    // Maximal Matching NLP Algorithm
+    function segmentSentence(sentenceText) {
+      const tokens = [];
+      let index = 0;
+      const maxWordLength = 6;
+
+      while (index < sentenceText.length) {
+        let matched = false;
+
+        for (let len = maxWordLength; len > 0; len--) {
+          if (index + len <= sentenceText.length) {
+            const candidate = sentenceText.substring(index, index + len);
+            if (vocabMap.has(candidate)) {
+              tokens.push(vocabMap.get(candidate));
+              index += len;
+              matched = true;
+              break;
+            }
+          }
+        }
+
+        if (!matched) {
+          const char = sentenceText[index];
+          tokens.push(vocabMap.get(char) || {
+            traditional: char,
+            pinyin: '',
+            english: 'character',
+            level: 'A1'
+          });
+          index++;
+        }
+      }
+
+      return tokens;
+    }
+
+    // Stage Setup
+    function loadStage(index) {
+      if (customSentences.length === 0) return;
+      currentStageIndex = index % customSentences.length;
+      hasCheckedCurrentStage = false; // Reset check tracker for the new stage
+      
+      const data = customSentences[currentStageIndex];
+
+      const tokens = segmentSentence(data.Sentence);
+      const targetWords = tokens.map(t => t.traditional);
+
+      // Distractors selection
+      const distractors = allVocabList
+        .filter(v => v.Traditional && !targetWords.includes(v.Traditional))
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3)
+        .map(v => v.Traditional);
+
+      const wordBankTiles = [...targetWords, ...distractors]
+        .sort(() => 0.5 - Math.random())
+        .map((word, i) => {
+          const entry = vocabMap.get(word) || { traditional: word, pinyin: '', english: '' };
+          return { id: `tile-${i}-${Date.now()}`, ...entry };
+        });
+
+      currentStage = {
+        sentence: data.Sentence,
+        english: data.English,
+        tokens: tokens,
+        targetWords: targetWords,
+        bank: wordBankTiles
+      };
+
+      renderStage();
+    }
+
+    function renderStage() {
+      document.getElementById('stage-counter').innerText = `Sentence ${currentStageIndex + 1} / ${customSentences.length}`;
+      document.getElementById('target-english').innerHTML = `${currentStage.english} <button class="audio-btn" onclick="speakMandarin('${currentStage.sentence}')">🔊</button>`;
+      
+      document.getElementById('sentence-zone').innerHTML = '';
+      const bankZone = document.getElementById('word-bank');
+      bankZone.innerHTML = '';
+
+      currentStage.bank.forEach(tile => {
+        bankZone.appendChild(createTileElement(tile));
+      });
+
+      document.getElementById('feedback-box').className = 'feedback-box';
+    }
+
+    function createTileElement(tile) {
+      const el = document.createElement('div');
+      el.className = 'tile';
+      el.id = tile.id;
+      el.draggable = true;
+      el.dataset.word = tile.traditional;
+      el.dataset.pinyin = tile.pinyin;
+      el.dataset.english = tile.english;
+
+      // Pinyin is hardcoded to always display block
+      el.innerHTML = `
+        <span class="trad">${tile.traditional}</span>
+        <span class="pinyin" style="display: block;">${tile.pinyin}</span>
+      `;
+
+      // Event Listeners for Drag and Tap
+      el.addEventListener('dragstart', handleDragStart);
+      el.addEventListener('click', () => handleTileTap(el));
+
+      return el;
+    }
+
+    // Drag and Drop Logic
+    let draggedTileId = null;
+
+    function handleDragStart(e) {
+      draggedTileId = e.target.id;
+      e.dataTransfer.setData('text/plain', e.target.id);
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.currentTarget.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    function handleDrop(e, zoneType) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      
+      const tileId = e.dataTransfer.getData('text/plain') || draggedTileId;
+      const tileEl = document.getElementById(tileId);
+      if (!tileEl) return;
+
+      const targetZone = zoneType === 'sentence' ? document.getElementById('sentence-zone') : document.getElementById('word-bank');
+      
+      if (zoneType === 'sentence') {
+        tileEl.classList.add('in-sentence');
+      } else {
+        tileEl.classList.remove('in-sentence');
+      }
+
+      targetZone.appendChild(tileEl);
+      speakMandarin(tileEl.dataset.word);
+    }
+
+    function handleTileTap(tileEl) {
+      const sentenceZone = document.getElementById('sentence-zone');
+      const bankZone = document.getElementById('word-bank');
+
+      if (tileEl.parentElement.id === 'word-bank') {
+        tileEl.classList.add('in-sentence');
+        sentenceZone.appendChild(tileEl);
+      } else {
+        tileEl.classList.remove('in-sentence');
+        bankZone.appendChild(tileEl);
+      }
+      speakMandarin(tileEl.dataset.word);
+    }
+
+    // Checking Answers & Score Tracking
+    function checkAnswer() {
+      const sentenceZone = document.getElementById('sentence-zone');
+      const constructedWords = Array.from(sentenceZone.children).map(el => el.dataset.word);
+      const constructedSentence = constructedWords.join('');
+
+      const feedbackBox = document.getElementById('feedback-box');
+      const feedbackTitle = document.getElementById('feedback-title');
+      const feedbackBody = document.getElementById('feedback-body');
+      const breakdownEl = document.getElementById('token-breakdown');
+
+      const isCorrect = constructedSentence === currentStage.sentence;
+
+      // Track score only on the first check attempt for each unique stage
+      if (!hasCheckedCurrentStage) {
+        hasCheckedCurrentStage = true;
+        if (isCorrect) {
+          totalCorrect++;
+        } else {
+          totalIncorrect++;
+        }
+        updateScoreDisplay();
+      }
+
+      if (isCorrect) {
+        feedbackBox.className = 'feedback-box correct';
+        feedbackTitle.innerText = '🎉 Correct! 太棒了！';
+        feedbackBody.innerText = `You built: "${currentStage.sentence}"`;
+        speakMandarin(currentStage.sentence);
+      } else {
+        feedbackBox.className = 'feedback-box incorrect';
+        feedbackTitle.innerText = '❌ Not quite right yet';
+        feedbackBody.innerText = `Expected sentence structure: ${currentStage.targetWords.join(' + ')}`;
+      }
+
+      // Render token vocabulary breakdown
+      breakdownEl.innerHTML = currentStage.tokens.map(t => `
+        <div class="token-card">
+          <strong style="color:#2c3e50; font-size:1.1rem;">${t.traditional}</strong> 
+          <span style="color:#e67e22;">${t.pinyin}</span>
+          <div style="color:#7f8c8d; font-size:0.8rem;">${t.english}</div>
+        </div>
+      `).join('');
+    }
+
+    function updateScoreDisplay() {
+      const totalAttempts = totalCorrect + totalIncorrect;
+      const percentage = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+      document.getElementById('score-counter').innerText = `Correct: ${totalCorrect} | Incorrect: ${totalIncorrect} (${percentage}%)`;
+    }
+
+    function nextStage() {
+      loadStage(currentStageIndex + 1);
+    }
+
+    // TTS Web Speech Synthesis
+    function speakMandarin(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-TW';
+        utterance.rate = 0.85;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function updateStatus(msg) {
+      document.getElementById('data-status').innerText = msg;
+    }
+  </script>
+</body>
+</html>

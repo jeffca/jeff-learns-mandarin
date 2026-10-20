@@ -1,0 +1,244 @@
+:root {
+    --primary: #2c3e50;
+    --accent: #a2db56;
+    --accent-hover: #5fcc20;
+    --bg: #f4f6f8;
+    --card-bg: #ffffff;
+    --success: #27ae60;
+    --warning: #f39c12;
+    --tile-bg: #e0f7fa;
+    --tile-border: #00838f;
+    --tile-text: #006064;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--primary);
+    line-height: 1.6;
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+h1 {
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    color: #1a252f;
+}
+
+.sub-title {
+    font-size: 0.95rem;
+    color: #7f8c8d;
+}
+
+.status-banner {
+    background: #e8f4f8;
+    border-left: 4px solid #2980b9;
+    padding: 10px 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 10px;
+}
+
+.btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.btn:hover {
+    opacity: 0.9;
+}
+
+.btn-accent {
+    background: var(--accent);
+}
+
+.btn-accent:hover {
+    background: var(--accent-hover);
+}
+
+.btn-small {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+}
+
+.game-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+
+.scenario-header {
+    margin-bottom: 20px;
+}
+
+.target-english {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-top: 5px;
+}
+
+.audio-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    margin-left: 8px;
+    vertical-align: middle;
+}
+
+/* Sentence Slots Area */
+.sentence-zone {
+    min-height: 80px;
+    border: 2px dashed #bdc3c7;
+    border-radius: 10px;
+    padding: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    background: #fafafa;
+    margin-bottom: 25px;
+    transition: border-color 0.2s;
+}
+
+.sentence-zone.drag-over {
+    border-color: #3498db;
+    background: #ebf5fb;
+}
+
+/* Word Bank Area */
+.word-bank {
+    min-height: 100px;
+    background: #edf2f7;
+    border-radius: 10px;
+    padding: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+/* Draggable Word Tile */
+.tile {
+    background: var(--card-bg);
+    border: 2px solid #cbd5e0;
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: grab;
+    user-select: none;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.2s;
+}
+
+.tile:active {
+    cursor: grabbing;
+    transform: scale(1.05);
+}
+
+.tile .trad {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #2d3748;
+}
+
+.tile .pinyin {
+    font-size: 0.8rem;
+    color: #e67e22;
+    margin-top: 2px;
+}
+
+.tile.in-sentence {
+    border-color: #3182ce;
+    background: #ebf8ff;
+}
+
+/* Feedback Box */
+.feedback-box {
+    padding: 15px;
+    border-radius: 8px;
+    display: none;
+    margin-top: 15px;
+}
+
+.feedback-box.correct {
+    display: block;
+    background: #e6fffa;
+    border: 1px solid #38b2ac;
+    color: #234e52;
+}
+
+.feedback-box.incorrect {
+    display: block;
+    background: #fff5f5;
+    border: 1px solid #feb2b2;
+    color: #9b2c2c;
+}
+
+.token-breakdown {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.token-card {
+    background: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    font-size: 0.85rem;
+}
+
+.file-input-wrapper {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    body { padding: 10px; }
+    .tile { padding: 8px 12px; }
+    .tile .trad { font-size: 1.2rem; }
+}
